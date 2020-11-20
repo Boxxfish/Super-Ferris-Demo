@@ -2,31 +2,56 @@
 /// Manages execution of the game.
 ///
 
+use winit::{dpi, event_loop};
+use winit::event;
+use winit::window;
+
 use super::entity_manager;
-use super::systems::*;
+use super::systems::logging_system;
+use super::renderer;
 
 pub struct Game {
-    entity_mgr: entity_manager::EntityManager
+
 }
 
 impl Game {
     pub fn new() -> Self {
         Game {
-            entity_mgr: entity_manager::EntityManager::new()
+            
         }
     }
 
     /// Sets up everything and runs until game stops.
-    pub fn run(&self) {
-        // Do setup here
-        let mut should_run = true;
+    pub fn run(&mut self) {
+        // Create event loop and window
+        let evt_loop = event_loop::EventLoop::new();
+        let window = window::WindowBuilder::new()
+            .with_title("Super Ferris")
+            .with_resizable(false)
+            .with_inner_size(dpi::PhysicalSize {
+                width: renderer::WIN_WIDTH,
+                height: renderer::WIN_HEIGHT
+            })
+            .build(&evt_loop)
+            .expect("Could not create window.");
 
-        // Game loop
-        while should_run {
-
-            // Quit for now
-            should_run = false;
-        }
+        let entity_mgr = entity_manager::EntityManager::new();
+        let mut renderer = futures::executor::block_on(renderer::Renderer::new(&window));
+        
+        // Start event loop
+        evt_loop.run(move |event, _, control_flow| {
+            match event {
+                // If window should close, exit
+                event::Event::WindowEvent {
+                    window_id,
+                    event: event::WindowEvent::CloseRequested
+                } if window_id == window.id() => *control_flow = event_loop::ControlFlow::Exit,
+                // If all events were handled, render
+                event::Event::MainEventsCleared => renderer.render(),
+                // Otherwise, do nothing
+                _ => ()
+            }
+        });
     }
 }
 

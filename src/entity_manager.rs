@@ -37,25 +37,6 @@ macro_rules! setup_comp {
     };
 }
 
-/// Contains indices for components.
-#[derive(Debug, Copy, Clone)]
-pub struct Entity {
-    pub id: u32,
-    pub exists: bool,
-    log_ind: u32
-}
-
-impl Entity {
-    /// Creates an uninitialized entity.
-    fn uninit() -> Self {
-        Self {
-            id: 0,
-            exists: false,
-            log_ind: 0
-        }
-    }
-}
-
 pub struct EntityManager {
     pub entities: Vec<Entity>,
     log_comps: Vec<LogComponent>
@@ -111,6 +92,25 @@ impl EntityManager {
                 self.entities.push(Entity::uninit());
                 self.entities.len() as u32 - 1
             },
+        }
+    }
+}
+
+/// Contains indices for components.
+#[derive(Debug, Copy, Clone)]
+pub struct Entity {
+    pub id: u32,
+    pub exists: bool,
+    log_ind: u32
+}
+
+impl Entity {
+    /// Creates an uninitialized entity.
+    fn uninit() -> Self {
+        Self {
+            id: 0,
+            exists: false,
+            log_ind: 0
         }
     }
 }
