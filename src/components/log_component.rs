@@ -3,6 +3,7 @@
 /// 
 
 use std::string;
+use super::Component;
 
 pub struct LogComponent {
     pub exists: bool,
@@ -11,9 +12,8 @@ pub struct LogComponent {
     pub message: String
 }
 
-impl LogComponent {
-    /// Creates an uninitialized entity.
-    pub fn uninit() -> Self {
+impl Component for LogComponent {
+    fn uninit() -> Self {
         Self {
             exists: false,
             id: 0,

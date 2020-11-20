@@ -4,6 +4,38 @@
 
 use std::vec;
 use super::components::LogComponent;
+use super::components::Component;
+
+/// Automates adding a new component to the manager.
+#[macro_export]
+macro_rules! setup_comp {
+    ($comp_type:ident, $entity_comps_name:ident, $comp_ind_name:ident, $add_name:ident, $get_name:ident, $index_name:ident) => {
+        /// Adds a component to the entity.
+        pub fn $add_name(&mut self, entity_id: u32) {
+            let ind = self.$index_name();
+            self.$entity_comps_name[ind as usize].exists = true;
+            self.entities[entity_id as usize].$comp_ind_name = ind;
+        }
+
+        /// Returns an entity's component.
+        pub fn $get_name(&mut self, entity_id: u32) -> &mut $comp_type {
+            let ind = self.entities[entity_id as usize].$comp_ind_name;
+            return &mut self.$entity_comps_name[ind as usize];
+        }
+        
+        /// Returns the next free index in the component list.
+        /// May expand component list.
+        fn $index_name(&mut self) -> u32 {
+            match self.$entity_comps_name.iter().find(|&comp| {!comp.exists}) {
+                Some(comp) => comp.id,
+                None => {
+                    self.log_comps.push($comp_type::uninit());
+                    self.log_comps.len() as u32 - 1
+                },
+            }
+        }
+    };
+}
 
 /// Contains indices for components.
 #[derive(Debug, Copy, Clone)]
@@ -33,6 +65,9 @@ const INITIAL_ENTITIES_LEN: usize = 32;
 const INITIAL_COMPS_LEN: usize = 32;
 
 impl EntityManager {
+    // TODO: This is an improvement, but make it less wordy
+    setup_comp!(LogComponent, log_comps, log_ind, add_log_comp, get_log_comp, get_next_free_log_index);
+
     pub fn new() -> Self {
         // Component lists should have at least 1 element
         // Index 0 has the null component
@@ -67,21 +102,6 @@ impl EntityManager {
         entity_id
     }
 
-    /// Adds a log component to the entity.
-    // TODO: Automate this
-    pub fn add_log_comp(&mut self, entity_id: u32) {
-        let log_ind = self.get_next_free_log_index();
-        self.log_comps[log_ind as usize].exists = true;
-        self.entities[entity_id as usize].log_ind = log_ind;
-    }
-
-    /// Returns an entity's log component.
-    // TODO: Automate this
-    pub fn get_log_comp(&mut self, entity_id: u32) -> &mut LogComponent {
-        let log_ind = self.entities[entity_id as usize].log_ind;
-        return &mut self.log_comps[log_ind as usize];
-    }
-
     /// Returns the next free ID.
     /// May expand entity list.
     fn get_next_free_id(&mut self) -> u32 {
@@ -90,19 +110,6 @@ impl EntityManager {
             None => {
                 self.entities.push(Entity::uninit());
                 self.entities.len() as u32 - 1
-            },
-        }
-    }
-    
-    /// Returns the next free index in the log component list.
-    /// May expand log component list.
-    // TODO: Create a macro that automates the whole component adding system
-    fn get_next_free_log_index(&mut self) -> u32 {
-        match self.log_comps.iter().find(|&comp| {!comp.exists}) {
-            Some(comp) => comp.id,
-            None => {
-                self.log_comps.push(LogComponent::uninit());
-                self.log_comps.len() as u32 - 1
             },
         }
     }
