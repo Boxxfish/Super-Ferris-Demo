@@ -23,6 +23,7 @@ pub const WIN_HEIGHT: u32 = 240 * WIN_SCALE;
 impl Renderer {
     /// Creates a new renderer instance.
     pub async fn new(win: &window::Window) -> Self {
+        // Set up WGPU stuff
         let wgpu_inst = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         let surface = unsafe { wgpu_inst.create_surface(win) };
         let adapter = wgpu_inst.request_adapter(&wgpu::RequestAdapterOptions {
@@ -46,6 +47,11 @@ impl Renderer {
         };
         let swap_chain = device.create_swap_chain(&surface, &swap_chain_desc);
 
+        // Load shaders
+        let v_shader = Renderer::load_shader(&device, include_bytes!("shaders/basic.vert.spirv"));
+        let f_shader = Renderer::load_shader(&device, include_bytes!("shaders/basic.frag.spirv"));
+
+        // Return struct
         Self {
             swap_chain,
             queue,
@@ -98,6 +104,11 @@ impl Renderer {
         );
         drop(render_pass);
         self.queue.submit(std::iter::once(encoder.finish()));
+    }
+
+    /// Loads a shader.
+    fn load_shader(device: &wgpu::Device, bytes: &[u8]) -> wgpu::ShaderModule {
+        device.create_shader_module(wgpu::util::make_spirv(bytes))
     }
 }
 

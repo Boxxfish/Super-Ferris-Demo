@@ -2,7 +2,6 @@
 /// A component that logs info.
 /// 
 
-use std::string;
 use super::Component;
 
 pub struct LogComponent {
