@@ -37,7 +37,7 @@ impl Game {
 
         let entity_mgr = entity_manager::EntityManager::new();
         let mut renderer = futures::executor::block_on(renderer::Renderer::new(&window));
-        
+
         // Start event loop
         evt_loop.run(move |event, _, control_flow| {
             match event {
