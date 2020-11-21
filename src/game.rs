@@ -7,6 +7,7 @@ use winit::event;
 use winit::window;
 
 use super::entity_manager;
+use super::input_manager;
 use super::systems::logging_system;
 use super::renderer;
 
@@ -35,20 +36,50 @@ impl Game {
             .build(&evt_loop)
             .expect("Could not create window.");
 
+        // Set up input manager
+        let mut input_mgr = input_manager::InputManager::new();
+        input_mgr.map_key_to_button(event::VirtualKeyCode::Left, input_manager::ButtonCode::LEFT);
+        input_mgr.map_key_to_button(event::VirtualKeyCode::Right, input_manager::ButtonCode::RIGHT);
+        input_mgr.map_key_to_button(event::VirtualKeyCode::Up, input_manager::ButtonCode::UP);
+        input_mgr.map_key_to_button(event::VirtualKeyCode::Down, input_manager::ButtonCode::DOWN);
+        input_mgr.map_key_to_button(event::VirtualKeyCode::X, input_manager::ButtonCode::A);
+        input_mgr.map_key_to_button(event::VirtualKeyCode::Z, input_manager::ButtonCode::B);
+
+        // Set up game framework
         let entity_mgr = entity_manager::EntityManager::new();
         let mut renderer = futures::executor::block_on(renderer::Renderer::new(&window));
 
         // Start event loop
         evt_loop.run(move |event, _, control_flow| {
             match event {
-                // If window should close, exit
                 event::Event::WindowEvent {
                     window_id,
-                    event: event::WindowEvent::CloseRequested
-                } if window_id == window.id() => *control_flow = event_loop::ControlFlow::Exit,
-                // If all events were handled, render
-                event::Event::MainEventsCleared => renderer.render(),
-                // Otherwise, do nothing
+                    event
+                } if window_id == window.id() => match event {
+                    // If window should close, exit
+                    event::WindowEvent::CloseRequested => {*control_flow = event_loop::ControlFlow::Exit},
+                    // If keyboard input is detected, handle it
+                    event::WindowEvent::KeyboardInput { 
+                        input,
+                        ..
+                    } => {
+                        let button = input_mgr.key_to_button(input.virtual_keycode.unwrap());
+                        if button.is_some() {
+                            let button = button.unwrap();
+                            if input.state == event::ElementState::Pressed {
+                                input_mgr.set_button_pressed(button);
+                            }
+                            if input.state == event::ElementState::Released {
+                                input_mgr.set_button_released(button);
+                            }
+                        }
+                    },
+                    _ => {}
+                },
+                // If all events were handled, update and render
+                event::Event::MainEventsCleared => {
+                    renderer.render();
+                },
                 _ => ()
             }
         });
