@@ -6,9 +6,10 @@ use winit::{dpi, event_loop};
 use winit::event;
 use winit::window;
 
+use crate::systems::{draw_system, logging_system, player_system};
+
 use super::entity_manager;
 use super::input_manager;
-use super::systems::logging_system;
 use super::renderer;
 
 pub struct Game {
@@ -46,8 +47,13 @@ impl Game {
         input_mgr.map_key_to_button(event::VirtualKeyCode::Z, input_manager::ButtonCode::B);
 
         // Set up game framework
-        let entity_mgr = entity_manager::EntityManager::new();
+        let mut entity_mgr = entity_manager::EntityManager::new();
         let mut renderer = futures::executor::block_on(renderer::Renderer::new(&window));
+
+        // Set up entities
+        let entity_id = entity_mgr.create_entity();
+        entity_mgr.add_sprite_comp(entity_id);
+        entity_mgr.get_sprite_comp(entity_id).tex_name = String::from("assets/ferris.png");
 
         // Start event loop
         evt_loop.run(move |event, _, control_flow| {
@@ -78,6 +84,10 @@ impl Game {
                 },
                 // If all events were handled, update and render
                 event::Event::MainEventsCleared => {
+                    logging_system::update(&mut entity_mgr);
+                    player_system::update(&mut entity_mgr, &input_mgr);
+                    draw_system::update(&mut entity_mgr, &mut renderer);
+                    
                     renderer.render();
                 },
                 _ => ()

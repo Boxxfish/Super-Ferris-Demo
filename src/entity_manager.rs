@@ -3,13 +3,15 @@
 /// 
 
 use std::vec;
+use crate::components::{PositionComponent, SpriteComponent};
+
 use super::components::LogComponent;
 use super::components::Component;
 
 /// Automates adding a new component to the manager.
 #[macro_export]
 macro_rules! setup_comp {
-    ($comp_type:ident, $entity_comps_name:ident, $comp_ind_name:ident, $add_name:ident, $get_name:ident, $index_name:ident) => {
+    ($comp_type:ident, $entity_comps_name:ident, $comp_ind_name:ident, $add_name:ident, $get_name:ident, $get_name_immut:ident, $index_name:ident) => {
         /// Adds a component to the entity.
         pub fn $add_name(&mut self, entity_id: u32) {
             let ind = self.$index_name();
@@ -22,6 +24,12 @@ macro_rules! setup_comp {
             let ind = self.entities[entity_id as usize].$comp_ind_name;
             return &mut self.$entity_comps_name[ind as usize];
         }
+
+        /// Returns an entity's component immutably.
+        pub fn $get_name_immut(&self, entity_id: u32) -> &$comp_type {
+            let ind = self.entities[entity_id as usize].$comp_ind_name;
+            return &self.$entity_comps_name[ind as usize];
+        }
         
         /// Returns the next free index in the component list.
         /// May expand component list.
@@ -29,8 +37,8 @@ macro_rules! setup_comp {
             match self.$entity_comps_name.iter().find(|&comp| {!comp.exists}) {
                 Some(comp) => comp.id,
                 None => {
-                    self.log_comps.push($comp_type::uninit());
-                    self.log_comps.len() as u32 - 1
+                    self.$entity_comps_name.push($comp_type::uninit());
+                    self.$entity_comps_name.len() as u32 - 1
                 },
             }
         }
@@ -39,7 +47,9 @@ macro_rules! setup_comp {
 
 pub struct EntityManager {
     pub entities: Vec<Entity>,
-    log_comps: Vec<LogComponent>
+    log_comps: Vec<LogComponent>,
+    sprite_comps: Vec<SpriteComponent>,
+    pos_comps: Vec<PositionComponent>,
 }
 
 const INITIAL_ENTITIES_LEN: usize = 32;
@@ -47,24 +57,31 @@ const INITIAL_COMPS_LEN: usize = 32;
 
 impl EntityManager {
     // TODO: This is an improvement, but make it less wordy
-    setup_comp!(LogComponent, log_comps, log_ind, add_log_comp, get_log_comp, get_next_free_log_index);
+    setup_comp!(LogComponent, log_comps, log_ind, add_log_comp, get_log_comp, get_log_comp_immut, get_next_free_log_index);
+    setup_comp!(SpriteComponent, sprite_comps, sprite_ind, add_sprite_comp, get_sprite_comp, get_sprite_comp_immut, get_next_free_sprite_index);
+    setup_comp!(PositionComponent, pos_comps, pos_ind, add_pos_comp, get_pos_comp, get_pos_comp_immut, get_next_free_pos_index);
 
     pub fn new() -> Self {
         // Component lists should have at least 1 element
         // Index 0 has the null component
         let mut log_comps = vec![
-            LogComponent {
-                id: 0,
-                exists: true,
-                has_info: false,
-                message: String::from("")
-            }
+            LogComponent::uninit()
         ];
         log_comps.reserve(INITIAL_COMPS_LEN - 1);
+        let mut sprite_comps = vec![
+            SpriteComponent::uninit()
+        ];
+        sprite_comps.reserve(INITIAL_COMPS_LEN - 1);
+        let mut pos_comps = vec![
+            PositionComponent::uninit()
+        ];
+        pos_comps.reserve(INITIAL_COMPS_LEN - 1);
 
         EntityManager {
             entities: vec::Vec::with_capacity(INITIAL_ENTITIES_LEN),
-            log_comps
+            log_comps,
+            sprite_comps,
+            pos_comps
         }
     }
 
@@ -76,7 +93,9 @@ impl EntityManager {
         let mut entity = Entity {
             id: entity_id,
             exists: true,
-            log_ind: 0
+            log_ind: 0,
+            sprite_ind: 0,
+            pos_ind: 0
         };
         self.entities[entity_id as usize] = entity;
 
@@ -101,7 +120,9 @@ impl EntityManager {
 pub struct Entity {
     pub id: u32,
     pub exists: bool,
-    log_ind: u32
+    log_ind: u32,
+    sprite_ind: u32,
+    pos_ind: u32
 }
 
 impl Entity {
@@ -110,7 +131,9 @@ impl Entity {
         Self {
             id: 0,
             exists: false,
-            log_ind: 0
+            log_ind: 0,
+            sprite_ind: 0,
+            pos_ind: 0,
         }
     }
 }

@@ -261,8 +261,8 @@ impl Renderer {
     }
 
     /// Sets the position of a render quad.
-    pub fn set_quad_pos(&mut self, quad_id: u32, x: u32, y: u32) {
-        let matrix = cgmath::Matrix4::from_translation(cgmath::Vector3::new((x * WIN_SCALE) as f32, (y * WIN_SCALE) as f32, 0.0));
+    pub fn set_quad_pos(&mut self, quad_id: u32, x: i32, y: i32) {
+        let matrix = cgmath::Matrix4::from_translation(cgmath::Vector3::new((x * WIN_SCALE as i32) as f32, (y * WIN_SCALE as i32) as f32, 0.0));
         self.render_quads[quad_id as usize].per_quad_bind_group = RenderQuad::gen_per_quad_bind_group(&self.device, &self.per_quad_bind_group_layout, matrix);
     }
 
