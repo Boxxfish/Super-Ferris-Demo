@@ -95,7 +95,10 @@ impl EntityManager {
             exists: true,
             log_ind: 0,
             sprite_ind: 0,
-            pos_ind: 0
+            pos_ind: 0,
+            use_draw: false,
+            use_log: false,
+            use_player: false,
         };
         self.entities[entity_id as usize] = entity;
 
@@ -113,6 +116,21 @@ impl EntityManager {
             },
         }
     }
+
+    /// Activates the logging system for the entity.
+    pub fn set_use_log(&mut self, entity_id: u32) {
+        self.entities[entity_id as usize].use_log = true;
+    }
+
+    /// Activates the draw system for the entity.
+    pub fn set_use_draw(&mut self, entity_id: u32) {
+        self.entities[entity_id as usize].use_draw = true;
+    }
+
+    /// Activates the player system for the entity.
+    pub fn set_use_player(&mut self, entity_id: u32) {
+        self.entities[entity_id as usize].use_player = true;
+    }
 }
 
 /// Contains indices for components.
@@ -122,7 +140,10 @@ pub struct Entity {
     pub exists: bool,
     log_ind: u32,
     sprite_ind: u32,
-    pos_ind: u32
+    pos_ind: u32,
+    pub use_log: bool,
+    pub use_draw: bool,
+    pub use_player: bool
 }
 
 impl Entity {
@@ -134,6 +155,9 @@ impl Entity {
             log_ind: 0,
             sprite_ind: 0,
             pos_ind: 0,
+            use_log: false,
+            use_draw: false,
+            use_player: false
         }
     }
 }

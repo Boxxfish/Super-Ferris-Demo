@@ -52,8 +52,32 @@ impl Game {
 
         // Set up entities
         let entity_id = entity_mgr.create_entity();
+        entity_mgr.set_use_draw(entity_id);
+        entity_mgr.set_use_player(entity_id);
+        entity_mgr.add_pos_comp(entity_id);
         entity_mgr.add_sprite_comp(entity_id);
         entity_mgr.get_sprite_comp(entity_id).tex_name = String::from("assets/ferris.png");
+
+        // Load level
+        let level_str = include_str!("../assets/level.txt");
+        let mut y = 0;
+        let mut x = 0;
+        for c in level_str.chars() {
+            match c {
+                '\n' => {y += 1; x = 0},
+                'x' => {
+                    let block_id = entity_mgr.create_entity();
+                    entity_mgr.set_use_draw(block_id);
+                    entity_mgr.add_pos_comp(block_id);
+                    entity_mgr.add_sprite_comp(block_id);
+                    entity_mgr.get_sprite_comp(block_id).tex_name = String::from("assets/tileset.png");
+                    entity_mgr.get_pos_comp(block_id).x = x * 16;
+                    entity_mgr.get_pos_comp(block_id).y = y * 16;
+                    x += 1
+                },
+                _ => x += 1
+            }
+        }
 
         // Start event loop
         evt_loop.run(move |event, _, control_flow| {
@@ -69,7 +93,12 @@ impl Game {
                         input,
                         ..
                     } => {
-                        let button = input_mgr.key_to_button(input.virtual_keycode.unwrap());
+                        let v_key_code = input.virtual_keycode;
+                        if v_key_code.is_none() {
+                            return;
+                        }
+
+                        let button = input_mgr.key_to_button(v_key_code.unwrap());
                         if button.is_some() {
                             let button = button.unwrap();
                             if input.state == event::ElementState::Pressed {
@@ -102,6 +131,7 @@ fn test_logging_entity() {
     let mut entity_mgr = entity_manager::EntityManager::new();
     let entity_id = entity_mgr.create_entity();
     entity_mgr.add_log_comp(entity_id);
+    entity_mgr.set_use_log(entity_id);
     
     let log_comp = entity_mgr.get_log_comp(entity_id);
     log_comp.message = String::from("Logging test.");
@@ -117,6 +147,7 @@ fn test_logging_entities() {
     let mut entity_mgr = entity_manager::EntityManager::new();
     let entity_id = entity_mgr.create_entity();
     entity_mgr.add_log_comp(entity_id);
+    entity_mgr.set_use_log(entity_id);
 
     let log_comp = entity_mgr.get_log_comp(entity_id);
     log_comp.message = String::from("Logging test.");

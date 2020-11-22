@@ -7,7 +7,7 @@ use crate::{components::PositionComponent, entity_manager::EntityManager, compon
 // Iterate over entities and update them.
 pub fn update(entity_mgr: &mut EntityManager, input_mgr: &InputManager) {
     for entity_id in 0..entity_mgr.entities.len() {
-        if entity_mgr.entities[entity_id].exists {
+        if entity_mgr.entities[entity_id].exists && entity_mgr.entities[entity_id].use_player {
             update_entity(entity_mgr.get_pos_comp(entity_id as u32),  input_mgr);
         }
     }

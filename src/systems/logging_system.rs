@@ -8,7 +8,7 @@ use crate::entity_manager::EntityManager;
 // Iterate over entities and update them.
 pub fn update(entity_mgr: &mut EntityManager) {
     for entity_id in 0..entity_mgr.entities.len() {
-        if entity_mgr.entities[entity_id].exists {
+        if entity_mgr.entities[entity_id].exists && entity_mgr.entities[entity_id].use_log {
             update_entity(entity_mgr.get_log_comp(entity_id as u32));
         }
     }
