@@ -2,9 +2,12 @@
 /// Manages execution of the game.
 ///
 
+use std::sync;
+
 use winit::{dpi, event_loop};
 use winit::event;
 use winit::window;
+use timer;
 
 use crate::systems::{draw_system, logging_system, player_system};
 
@@ -38,19 +41,22 @@ impl Game {
             .expect("Could not create window.");
 
         // Set up input manager
-        let mut input_mgr = input_manager::InputManager::new();
+        let input_mgr_mut = sync::Arc::new(sync::Mutex::new(input_manager::InputManager::new()));
+        let mut input_mgr = input_mgr_mut.lock().unwrap();
         input_mgr.map_key_to_button(event::VirtualKeyCode::Left, input_manager::ButtonCode::LEFT);
         input_mgr.map_key_to_button(event::VirtualKeyCode::Right, input_manager::ButtonCode::RIGHT);
         input_mgr.map_key_to_button(event::VirtualKeyCode::Up, input_manager::ButtonCode::UP);
         input_mgr.map_key_to_button(event::VirtualKeyCode::Down, input_manager::ButtonCode::DOWN);
         input_mgr.map_key_to_button(event::VirtualKeyCode::X, input_manager::ButtonCode::A);
         input_mgr.map_key_to_button(event::VirtualKeyCode::Z, input_manager::ButtonCode::B);
+        drop(input_mgr);
 
         // Set up game framework
-        let mut entity_mgr = entity_manager::EntityManager::new();
+        let entity_mgr_mut = sync::Arc::new(sync::Mutex::new(entity_manager::EntityManager::new()));
         let mut renderer = futures::executor::block_on(renderer::Renderer::new(&window));
 
         // Set up entities
+        let mut entity_mgr = entity_mgr_mut.lock().unwrap();
         let entity_id = entity_mgr.create_entity();
         entity_mgr.set_use_draw(entity_id);
         entity_mgr.set_use_player(entity_id);
@@ -79,8 +85,23 @@ impl Game {
                 _ => x += 1
             }
         }
+        drop(entity_mgr);
+
+        // Start game logic thread
+        // Runs once per 1/60'th of a second.
+        let timer = timer::Timer::new();
+        let entity_mgr_mut_ref = sync::Arc::clone(&entity_mgr_mut);
+        let input_mgr_mut_ref = sync::Arc::clone(&input_mgr_mut);
+        let guard = timer.schedule_repeating(chrono::Duration::milliseconds(16), move || {
+            let mut entity_mgr = entity_mgr_mut_ref.lock().unwrap();
+            let mut input_mgr = input_mgr_mut_ref.lock().unwrap();
+            logging_system::update(&mut entity_mgr);
+            player_system::update(&mut entity_mgr, &input_mgr);
+        });
 
         // Start event loop
+        let entity_mgr_mut_ref = sync::Arc::clone(&entity_mgr_mut);
+        let input_mgr_mut_ref = sync::Arc::clone(&input_mgr_mut);
         evt_loop.run(move |event, _, control_flow| {
             match event {
                 event::Event::WindowEvent {
@@ -94,6 +115,8 @@ impl Game {
                         input,
                         ..
                     } => {
+                        let mut input_mgr = input_mgr_mut_ref.lock().unwrap();
+
                         let v_key_code = input.virtual_keycode;
                         if v_key_code.is_none() {
                             return;
@@ -114,10 +137,8 @@ impl Game {
                 },
                 // If all events were handled, update and render
                 event::Event::MainEventsCleared => {
-                    logging_system::update(&mut entity_mgr);
-                    player_system::update(&mut entity_mgr, &input_mgr);
+                    let mut entity_mgr = entity_mgr_mut_ref.lock().unwrap();
                     draw_system::update(&mut entity_mgr, &mut renderer);
-                    
                     renderer.render();
                 },
                 _ => ()
