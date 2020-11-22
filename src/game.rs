@@ -71,6 +71,7 @@ impl Game {
                     entity_mgr.add_pos_comp(block_id);
                     entity_mgr.add_sprite_comp(block_id);
                     entity_mgr.get_sprite_comp(block_id).tex_name = String::from("assets/tileset.png");
+                    entity_mgr.get_sprite_comp(block_id).sprite_index = 2;
                     entity_mgr.get_pos_comp(block_id).x = x * 16;
                     entity_mgr.get_pos_comp(block_id).y = y * 16;
                     x += 1

@@ -8,6 +8,7 @@ use bytemuck;
 use wgpu::util::DeviceExt;
 use wgpu;
 use image::GenericImageView;
+use yaml_rust::{YamlLoader, YamlEmitter};
 
 pub struct Renderer {
     swap_chain: wgpu::SwapChain,
@@ -254,8 +255,29 @@ impl Renderer {
         let old_tex = &self.textures[self.render_quads[quad_id as usize].tex_id as usize];
         let new_tex = &self.textures[tex_id as usize];
         if old_tex.width != new_tex.width || old_tex.height != new_tex.height {
-            self.render_quads[quad_id as usize].vertex_buffer = RenderQuad::gen_vertex_buffer(&self.device, new_tex.width, new_tex.height);
+            self.render_quads[quad_id as usize].vertex_buffer = RenderQuad::gen_vertex_buffer(&self.device, new_tex.width, new_tex.height, 0.0, 1.0, 1.0, 0.0);
         }
+
+        self.render_quads[quad_id as usize].tex_id = tex_id;
+    }
+
+    /// Attaches a texture as a sprite to a render quad.
+    /// This always regenerates the vertex buffer, for now.
+    pub fn attach_sprite_to_quad(&mut self, quad_id: u32, tex_id: u32, sprite_index: u32) {
+        // Generate vertex buffer with correct texture coordinates
+        let new_tex = &self.textures[tex_id as usize];
+        let sprite_width = new_tex.metadata.sprite_width;
+        let sprite_height = new_tex.metadata.sprite_height;
+        let sprites_per_row = new_tex.width / sprite_width;
+        let y = sprite_index / sprites_per_row;
+        let x = sprite_index - y * sprites_per_row;
+        let tex_coord_width = sprite_width as f32 / new_tex.width as f32;
+        let tex_coord_height = sprite_height as f32 / new_tex.height as f32;
+        let sprite_l= x as f32 * tex_coord_width;
+        let sprite_r = (x + 1) as f32 * tex_coord_width;
+        let sprite_t = (y + 1) as f32 * tex_coord_height;
+        let sprite_b = y as f32 * tex_coord_height;
+        self.render_quads[quad_id as usize].vertex_buffer = RenderQuad::gen_vertex_buffer(&self.device, sprite_width, sprite_height, sprite_l, sprite_r, sprite_t, sprite_b);
 
         self.render_quads[quad_id as usize].tex_id = tex_id;
     }
@@ -334,24 +356,24 @@ impl RenderQuad {
     /// Creates a new render quad.
     pub fn new(device: &wgpu::Device, per_quad_bind_group_layout: &wgpu::BindGroupLayout) -> Self {
         Self {
-            vertex_buffer: RenderQuad::gen_vertex_buffer(device, 0, 0),
+            vertex_buffer: RenderQuad::gen_vertex_buffer(device, 0, 0, 0.0, 1.0, 1.0, 0.0),
             tex_id: 0,
             per_quad_bind_group: RenderQuad::gen_per_quad_bind_group(device, per_quad_bind_group_layout, cgmath::Matrix4::from_scale(1.0)),
         }
     }
 
     /// Generates a vertex buffer.
-    fn gen_vertex_buffer(device: &wgpu::Device, width: u32, height: u32) -> wgpu::Buffer {
+    fn gen_vertex_buffer(device: &wgpu::Device, width: u32, height: u32, sprite_l: f32, sprite_r: f32, sprite_t: f32, sprite_b: f32) -> wgpu::Buffer {
         // Create new coordinates
         let quad_width = (width * WIN_SCALE) as f32;
         let quad_height = (height * WIN_SCALE) as f32;
         let quad_coords: &[Vertex] = &[
-            Vertex { position: [0.0, quad_height, 0.0], tex_coords: [0.0, 1.0] },
-            Vertex { position: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0] },
-            Vertex { position: [quad_width as f32, 0.0, 0.0], tex_coords: [1.0, 0.0] },
-            Vertex { position: [quad_width, 0.0, 0.0], tex_coords: [1.0, 0.0] },
-            Vertex { position: [quad_width, quad_height, 0.0], tex_coords: [1.0, 1.0] },
-            Vertex { position: [0.0, quad_height, 0.0], tex_coords: [0.0, 1.0] },
+            Vertex { position: [0.0, quad_height, 0.0], tex_coords: [sprite_l, sprite_t] },
+            Vertex { position: [0.0, 0.0, 0.0], tex_coords: [sprite_l, sprite_b] },
+            Vertex { position: [quad_width as f32, 0.0, 0.0], tex_coords: [sprite_r, sprite_b] },
+            Vertex { position: [quad_width, 0.0, 0.0], tex_coords: [sprite_r, sprite_b] },
+            Vertex { position: [quad_width, quad_height, 0.0], tex_coords: [sprite_r, sprite_t] },
+            Vertex { position: [0.0, quad_height, 0.0], tex_coords: [sprite_l, sprite_t] },
         ];
 
         // Generate vertex buffer
@@ -411,7 +433,8 @@ pub struct Texture {
     pub name: String,
     pub width: u32,
     pub height: u32,
-    pub bind_group: wgpu::BindGroup
+    metadata: TextureMetadata,
+    bind_group: wgpu::BindGroup
 }
 
 impl Texture {
@@ -425,8 +448,14 @@ impl Texture {
             (color.a * 255.0) as u8
         ];
         
+        // Create metadata
+        let metadata = TextureMetadata {
+            sprite_width: 1,
+            sprite_height: 1
+        };
+
         // Create texture
-        return Texture::from_bytes(device, queue, bind_group_layout, name, &bytes, 1, 1);
+        return Texture::from_bytes(device, queue, bind_group_layout, name, &bytes, 1, 1, metadata);
     }
 
     /// Loads a texture from a path.
@@ -438,13 +467,30 @@ impl Texture {
         // Open image
         let tex_img = image::open(true_path).unwrap();
 
+        // Load texture metadata
+        let meta_path = true_path.with_extension("yaml");
+        let mut metadata = TextureMetadata { 
+            sprite_width: tex_img.width(),
+            sprite_height: tex_img.height()
+        };
+        if meta_path.exists() {
+            let meta_contents = std::fs::read_to_string(meta_path).unwrap();
+            let doc = &YamlLoader::load_from_str(&meta_contents[..]).unwrap()[0];
+            let sprite_width = doc["sprite_width"].as_i64().expect("Incorrect type of value for sprite_width in texture metadata.") as u32;
+            let sprite_height = doc["sprite_width"].as_i64().expect("Incorrect type of value for sprite_width in texture metadata.") as u32;
+            metadata = TextureMetadata {
+                sprite_width,
+                sprite_height,
+            };
+        }
+
         // Create texture
-        return Texture::from_bytes(device, queue, bind_group_layout, &name[..], tex_img.to_bgra8().as_raw().as_slice(), tex_img.width(), tex_img.height())
+        return Texture::from_bytes(device, queue, bind_group_layout, &name[..], tex_img.to_bgra8().as_raw().as_slice(), tex_img.width(), tex_img.height(), metadata)
     }
 
     /// Creates a texture from a series of bytes.
     /// Bytes must represent a BGRA8 image.
-    pub fn from_bytes(device: &wgpu::Device, queue: &wgpu::Queue, bind_group_layout: &wgpu::BindGroupLayout, name: &str, bytes: &[u8], width: u32, height: u32) -> Self {
+    pub fn from_bytes(device: &wgpu::Device, queue: &wgpu::Queue, bind_group_layout: &wgpu::BindGroupLayout, name: &str, bytes: &[u8], width: u32, height: u32, metadata: TextureMetadata) -> Self {
         let tex_size = wgpu::Extent3d {
             width,
             height,
@@ -531,9 +577,17 @@ impl Texture {
             name: String::from(name),
             width: tex_size.width,
             height: tex_size.height,
+            metadata: metadata,
             bind_group,
         }
     }
+}
+
+/// Holds metadata for textures.
+#[derive(Copy, Clone)]
+pub struct TextureMetadata {
+    sprite_width: u32,
+    sprite_height: u32
 }
 
 /// Holds global uniforms.
