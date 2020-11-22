@@ -5,6 +5,7 @@
 mod game;
 mod entity_manager;
 mod renderer;
+mod texture;
 mod input_manager;
 mod components;
 mod systems;
