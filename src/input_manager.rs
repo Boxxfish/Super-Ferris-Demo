@@ -14,8 +14,16 @@ pub enum ButtonCode {
     B
 }
 
+#[derive(PartialEq, Copy, Clone)]
+enum ButtonState {
+    PRESSED,
+    DOWN,
+    RELEASED,
+    UP,
+}
+
 pub struct InputManager {
-    button_down: [bool; 6],
+    button_states: [ButtonState; 6],
     key_button_map: collections::HashMap<winit::event::VirtualKeyCode, ButtonCode>
 }
 
@@ -23,24 +31,47 @@ impl InputManager {
     /// Creates a new instance of the input manager.
     pub fn new() -> Self {
         Self {
-            button_down: [false; 6],
+            button_states: [ButtonState::UP; 6],
             key_button_map: collections::HashMap::new()
         }
     }
 
     /// Returns true if button is down.
     pub fn is_button_down(&self, button_code: ButtonCode) -> bool {
-        return self.button_down[button_code as usize];
+        return match self.button_states[button_code as usize] {
+            ButtonState::DOWN => true,
+            ButtonState::PRESSED => true,
+            _ => false,
+        }
+    }
+
+    /// Returns true if button has been pressed this frame.
+    pub fn is_button_pressed(&self, button_code: ButtonCode) -> bool {
+        return self.button_states[button_code as usize] == ButtonState::PRESSED;
     }
 
     /// Sets a button as released this frame.
     pub fn set_button_released(&mut self, button_code: ButtonCode) {
-        self.button_down[button_code as usize] = false;
+        self.button_states[button_code as usize] = ButtonState::RELEASED;
     }
 
     /// Sets a button as pressed this frame.
     pub fn set_button_pressed(&mut self, button_code: ButtonCode) {
-        self.button_down[button_code as usize] = true;
+        if self.button_states[button_code as usize] != ButtonState::DOWN  {
+            self.button_states[button_code as usize] = ButtonState::PRESSED;
+        }
+    }
+
+    /// Updates the general state of the input manager.
+    /// Should be run once per frame.
+    pub fn update(&mut self) {
+        for button_state in &mut self.button_states {
+            *button_state = match button_state {
+                ButtonState::PRESSED => ButtonState::DOWN,
+                ButtonState::RELEASED => ButtonState::UP,
+                _ => *button_state
+            }
+        };
     }
 
     /// Converts a key to a ButtonCode.

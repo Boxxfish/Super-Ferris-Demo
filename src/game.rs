@@ -97,6 +97,7 @@ impl Game {
             let mut input_mgr = input_mgr_mut_ref.lock().unwrap();
             logging_system::update(&mut entity_mgr);
             player_system::update(&mut entity_mgr, &input_mgr);
+            input_mgr.update();
         });
 
         // Start event loop
