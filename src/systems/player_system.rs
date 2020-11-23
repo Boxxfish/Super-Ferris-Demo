@@ -76,11 +76,20 @@ pub fn update_entity(pos_comp: &mut PositionComponent, input_mgr: &InputManager)
     pos_comp.prec_x += pos_comp.spd_x;
     pos_comp.prec_y += pos_comp.spd_y;
 
-    // TEST: If y - offset > 196, keep it there
+    // Set up temporary bounds
     let v_offset = 4.0;
+    let h_offset = 8.0;
     if pos_comp.prec_y > 196.0 + v_offset {
         pos_comp.prec_y = 196.0 + v_offset;
         pos_comp.spd_y = 0.0;
+    }
+    if pos_comp.prec_x < 0.0 {
+        pos_comp.prec_x = 0.0;
+        pos_comp.spd_x = 0.0;
+    }
+    if pos_comp.prec_x > 256.0 - h_offset {
+        pos_comp.prec_x = 256.0 - h_offset;
+        pos_comp.spd_x = 0.0;
     }
 
     // Resolve precise x and y values to actual

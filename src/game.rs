@@ -55,36 +55,38 @@ impl Game {
         let entity_mgr_mut = sync::Arc::new(sync::Mutex::new(entity_manager::EntityManager::new()));
         let mut renderer = futures::executor::block_on(renderer::Renderer::new(&window));
 
-        // Set up entities
-        let mut entity_mgr = entity_mgr_mut.lock().unwrap();
+        // Load map
+        let mut tilemap: Vec<u32> = Vec::new();
         let level_str = include_str!("../assets/level.txt");
-        let mut y = 0;
-        let mut x = 0;
         let mut prev_c = ' ';
+        let map_width = level_str.find('\n').expect("Couldn't find newline.") as u32;
+        let map_height = level_str.lines().count() as u32;
         for c in level_str.chars() {
-            match c {
-                '\n' => {y += 1; x = 0},
-                'x' | ' ' | 'c' | 'b' => {
-                    let block_id = entity_mgr.create_entity();
-                    entity_mgr.set_use_draw(block_id);
-                    entity_mgr.add_pos_comp(block_id);
-                    entity_mgr.add_sprite_comp(block_id);
-                    entity_mgr.get_sprite_comp(block_id).tex_name = String::from("assets/tileset.png");
-                    entity_mgr.get_sprite_comp(block_id).sprite_index = match c {
-                        'x' => 4,
-                        ' ' => 5,
-                        'c' => if prev_c == 'c' {2} else {1},
-                        'b' => if prev_c == 'b' {3} else {7},
-                        _ => 5
-                    };
-                    entity_mgr.get_pos_comp(block_id).x = x * 16;
-                    entity_mgr.get_pos_comp(block_id).y = y * 16;
-                    x += 1
-                },
-                _ => x += 1
+            if c == '\n' {
+                continue;
             }
+
+            let curr_index = match c {
+                'x' => 4,
+                ' ' => 5,
+                'c' => if prev_c == 'c' {2} else {1},
+                'b' => if prev_c == 'b' {3} else {7},
+                _ => 5
+            };
+            tilemap.push(curr_index);
             prev_c = c;
         }
+
+        // Create entities
+        let mut entity_mgr = entity_mgr_mut.lock().unwrap();
+        let entity_id = entity_mgr.create_entity();
+        entity_mgr.set_use_draw(entity_id);
+        entity_mgr.add_pos_comp(entity_id);
+        entity_mgr.add_sprite_comp(entity_id);
+        entity_mgr.get_sprite_comp(entity_id).tex_name = String::from("assets/tileset.png");
+        entity_mgr.get_sprite_comp(entity_id).tilemap = Some(tilemap);
+        entity_mgr.get_sprite_comp(entity_id).tilemap_width = map_width;
+        entity_mgr.get_sprite_comp(entity_id).tilemap_height = map_height;
 
         let entity_id = entity_mgr.create_entity();
         entity_mgr.set_use_draw(entity_id);

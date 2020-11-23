@@ -24,7 +24,7 @@ pub struct Renderer {
     render_quads: Vec<RenderQuad>
 }
 
-pub const WIN_SCALE: u32 = 2;
+pub const WIN_SCALE: u32 = 4;
 pub const WIN_WIDTH: u32 = 256 * WIN_SCALE;
 pub const WIN_HEIGHT: u32 = 240 * WIN_SCALE;
 
@@ -283,6 +283,16 @@ impl Renderer {
         self.render_quads[quad_id as usize].tex_id = tex_id;
     }
 
+    /// Attaches a texture as a sprite to a render quad as tilemap source.
+    /// This always regenerates the vertex buffer, for now.
+    pub fn attach_tilemap_to_quad(&mut self, quad_id: u32, tex_id: u32, tilemap: &[u32], tilemap_width: u32, tilemap_height: u32) {
+        // Generate vertex buffer with correct texture coordinates
+        let new_tex = &self.textures[tex_id as usize];
+        self.render_quads[quad_id as usize].vertex_buffer = RenderQuad::gen_tilemap_vertex_buffer(&self.device, tilemap, tilemap_width, new_tex);
+        self.render_quads[quad_id as usize].vertex_count = tilemap_width * tilemap_height * QUAD_V_SIZE;
+        self.render_quads[quad_id as usize].tex_id = tex_id;
+    }
+
     /// Sets the position of a render quad.
     pub fn set_quad_pos(&mut self, quad_id: u32, x: i32, y: i32) {
         let matrix = cgmath::Matrix4::from_translation(cgmath::Vector3::new((x * WIN_SCALE as i32) as f32, (y * WIN_SCALE as i32) as f32, 0.0));
@@ -330,7 +340,7 @@ impl Renderer {
             render_pass.set_bind_group(1, &self.glob_bind_group, &[]);
             render_pass.set_bind_group(2, &render_quad.per_quad_bind_group, &[]);
             render_pass.set_vertex_buffer(0, render_quad.vertex_buffer.slice(..));
-            render_pass.draw(0..QUAD_V_SIZE as u32, 0..1);
+            render_pass.draw(0..render_quad.vertex_count, 0..1);
         }
 
         // Submit rendering commands to the queue
@@ -347,6 +357,7 @@ impl Renderer {
 /// A quad to be rendered.
 pub struct RenderQuad {
     vertex_buffer: wgpu::Buffer,
+    vertex_count: u32,
     tex_id: u32,
     per_quad_bind_group: wgpu::BindGroup
 }
@@ -359,6 +370,7 @@ impl RenderQuad {
         Self {
             vertex_buffer: RenderQuad::gen_vertex_buffer(device, 0, 0, 0.0, 1.0, 1.0, 0.0),
             tex_id: 0,
+            vertex_count: QUAD_V_SIZE,
             per_quad_bind_group: RenderQuad::gen_per_quad_bind_group(device, per_quad_bind_group_layout, cgmath::Matrix4::from_scale(1.0)),
         }
     }
@@ -382,6 +394,53 @@ impl RenderQuad {
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
                 contents: bytemuck::cast_slice(quad_coords),
+                usage: wgpu::BufferUsage::VERTEX
+            }
+        );
+
+        return vertex_buffer;
+    }
+
+    /// Generates a vertex buffer for a tilemap.
+    fn gen_tilemap_vertex_buffer(device: &wgpu::Device, tilemap: &[u32], tilemap_width: u32, texture: &Texture) -> wgpu::Buffer {
+        // Create new coordinates
+        let mut quad_coords = Vec::new();
+        let quad_width = (texture.metadata.sprite_width * WIN_SCALE) as f32;
+        let quad_height = (texture.metadata.sprite_height * WIN_SCALE) as f32;
+        let mut x = 0;
+        let mut y = 0;
+        for tile in tilemap {
+            let sprites_per_row = texture.width / texture.metadata.sprite_width;
+            let sprite_y = tile / sprites_per_row;
+            let sprite_x = tile - sprite_y * sprites_per_row;
+            let tex_coord_width = texture.metadata.sprite_width as f32 / texture.width as f32;
+            let tex_coord_height = texture.metadata.sprite_height as f32 / texture.height as f32;
+            let sprite_l= sprite_x as f32 * tex_coord_width;
+            let sprite_r = (sprite_x + 1) as f32 * tex_coord_width;
+            let sprite_t = (sprite_y + 1) as f32 * tex_coord_height;
+            let sprite_b = sprite_y as f32 * tex_coord_height;
+            let x_coord = (x as f32) * quad_width;
+            let y_coord = (y as f32) * quad_height;
+            quad_coords.append(&mut vec![
+                Vertex { position: [x_coord + 0.0, y_coord + quad_height, 0.0], tex_coords: [sprite_l, sprite_t] },
+                Vertex { position: [x_coord + 0.0, y_coord + 0.0, 0.0], tex_coords: [sprite_l, sprite_b] },
+                Vertex { position: [x_coord + quad_width, y_coord + 0.0, 0.0], tex_coords: [sprite_r, sprite_b] },
+                Vertex { position: [x_coord + quad_width, y_coord + 0.0, 0.0], tex_coords: [sprite_r, sprite_b] },
+                Vertex { position: [x_coord + quad_width, y_coord + quad_height, 0.0], tex_coords: [sprite_r, sprite_t] },
+                Vertex { position: [x_coord + 0.0, y_coord + quad_height, 0.0], tex_coords: [sprite_l, sprite_t] },
+            ]);
+            x += 1;
+            if x == tilemap_width {
+                x = 0;
+                y += 1;
+            }
+        };
+
+        // Generate vertex buffer
+        let vertex_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(quad_coords.as_slice()),
                 usage: wgpu::BufferUsage::VERTEX
             }
         );

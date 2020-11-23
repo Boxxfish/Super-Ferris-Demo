@@ -14,7 +14,12 @@ pub fn update(entity_mgr: &mut EntityManager, renderer: &mut Renderer) {
             if sprite_comp.should_update {
                 sprite_comp.quad_id = renderer.create_render_quad();
                 let tex_id = renderer.load_texture(sprite_comp.tex_name.as_str());
-                renderer.attach_sprite_to_quad(sprite_comp.quad_id, tex_id, sprite_comp.sprite_index);
+                if sprite_comp.tilemap == None {
+                    renderer.attach_sprite_to_quad(sprite_comp.quad_id, tex_id, sprite_comp.sprite_index);
+                }
+                else {
+                    renderer.attach_tilemap_to_quad(sprite_comp.quad_id, tex_id, sprite_comp.tilemap.as_mut().unwrap().as_slice(), sprite_comp.tilemap_width, sprite_comp.tilemap_height);
+                }
                 sprite_comp.should_update = false;
             }
 
