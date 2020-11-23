@@ -24,7 +24,7 @@ pub struct Renderer {
     render_quads: Vec<RenderQuad>
 }
 
-pub const WIN_SCALE: u32 = 4;
+pub const WIN_SCALE: u32 = 2;
 pub const WIN_WIDTH: u32 = 256 * WIN_SCALE;
 pub const WIN_HEIGHT: u32 = 240 * WIN_SCALE;
 
