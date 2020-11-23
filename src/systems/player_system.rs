@@ -76,9 +76,10 @@ pub fn update_entity(pos_comp: &mut PositionComponent, input_mgr: &InputManager)
     pos_comp.prec_x += pos_comp.spd_x;
     pos_comp.prec_y += pos_comp.spd_y;
 
-    // TEST: If y > 128, keep it there
-    if pos_comp.prec_y > 128.0 {
-        pos_comp.prec_y = 128.0;
+    // TEST: If y - offset > 196, keep it there
+    let v_offset = 4.0;
+    if pos_comp.prec_y > 196.0 + v_offset {
+        pos_comp.prec_y = 196.0 + v_offset;
         pos_comp.spd_y = 0.0;
     }
 

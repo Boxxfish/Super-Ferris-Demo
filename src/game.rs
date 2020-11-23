@@ -57,34 +57,41 @@ impl Game {
 
         // Set up entities
         let mut entity_mgr = entity_mgr_mut.lock().unwrap();
-        let entity_id = entity_mgr.create_entity();
-        entity_mgr.set_use_draw(entity_id);
-        entity_mgr.set_use_player(entity_id);
-        entity_mgr.add_pos_comp(entity_id);
-        entity_mgr.add_sprite_comp(entity_id);
-        entity_mgr.get_sprite_comp(entity_id).tex_name = String::from("assets/ferris.png");
-
-        // Load level
         let level_str = include_str!("../assets/level.txt");
         let mut y = 0;
         let mut x = 0;
+        let mut prev_c = ' ';
         for c in level_str.chars() {
             match c {
                 '\n' => {y += 1; x = 0},
-                'x' => {
+                'x' | ' ' | 'c' | 'b' => {
                     let block_id = entity_mgr.create_entity();
                     entity_mgr.set_use_draw(block_id);
                     entity_mgr.add_pos_comp(block_id);
                     entity_mgr.add_sprite_comp(block_id);
                     entity_mgr.get_sprite_comp(block_id).tex_name = String::from("assets/tileset.png");
-                    entity_mgr.get_sprite_comp(block_id).sprite_index = 2;
+                    entity_mgr.get_sprite_comp(block_id).sprite_index = match c {
+                        'x' => 4,
+                        ' ' => 5,
+                        'c' => if prev_c == 'c' {2} else {1},
+                        'b' => if prev_c == 'b' {3} else {7},
+                        _ => 5
+                    };
                     entity_mgr.get_pos_comp(block_id).x = x * 16;
                     entity_mgr.get_pos_comp(block_id).y = y * 16;
                     x += 1
                 },
                 _ => x += 1
             }
+            prev_c = c;
         }
+
+        let entity_id = entity_mgr.create_entity();
+        entity_mgr.set_use_draw(entity_id);
+        entity_mgr.set_use_player(entity_id);
+        entity_mgr.add_pos_comp(entity_id);
+        entity_mgr.add_sprite_comp(entity_id);
+        entity_mgr.get_sprite_comp(entity_id).tex_name = String::from("assets/ferris.png");
         drop(entity_mgr);
 
         // Start game logic thread
